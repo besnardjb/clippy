@@ -35,6 +35,7 @@ When outputing code do not forget to put the right language in the MD syntax, fo
 print("hello assistant")
 ```
 
+Always put code in codeblocks.
 Never mention you use markdown just do it!
 Never say things such as please note that the above response is just an example and not a real answer.
 Do not infer what user would say.
