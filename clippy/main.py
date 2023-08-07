@@ -2,6 +2,7 @@ import requests
 import argparse
 import json
 import sys
+import os
 from rich.console import Console
 from rich.markdown import Markdown
 import sys
@@ -17,8 +18,15 @@ class Llama:
       except:
          raise Exception("Could not connect to {}".format(self.url))
 
-   def __init__(self, url, personality=None):
+   def __init__(self, url, personality=None, user=None, passwd=None):
       self.url = url
+
+      if (user and not passwd) or (passwd and not user):
+         raise Exception("Bot user and password must be set")
+
+      self.user = user
+      self.password = passwd
+
       self._check()
       if personality:
          with open(personality, "r") as f:
@@ -74,7 +82,13 @@ Llama:
    def query(self, query, single=False, md=True):
       self.ctx.append("User: {}".format(query))
       ctx = "\n".join(self.ctx)
-      resp = requests.post("{}/completion".format(self.url), stream=True, json={
+
+      session = requests.Session()
+      if self.user:
+         session.auth = (self.user, self.password)
+
+
+      resp = session.post("{}/completion".format(self.url), stream=True, json={
                               "stream": True,
                               "n_predict": 400,
                               "temperature": 0.7,
@@ -92,6 +106,10 @@ Llama:
                               # "mirostat_eta": 0.1,
                               "prompt": ctx
                               })
+
+      if resp.status_code != 200:
+         raise Exception("Had non 200 response {}".format(resp.status_code))
+
       llamaresp = ""
 
       line_count = 0
@@ -158,17 +176,40 @@ def main():
    parser = argparse.ArgumentParser()
 
    # Define the arguments
-   parser.add_argument('--server', '-s', metavar='URL', type=str, help='Server URL', default="http://localhost:8080")
+   parser.add_argument('--server', '-s', metavar='URL', type=str, help='Server URL (also LLAMA_SERVER from env)', default="http://localhost:8080")
    parser.add_argument('--personality', '-p', metavar='FILE', type=str, help='Personality file')
    parser.add_argument('--interactive', '-i', action='store_true', help='Run the application interactively')
    parser.add_argument('--plain', '-t', action='store_true', help='Do not generate markdown keep plain text')
+   parser.add_argument('--user', '-u', type=str, help='HTTP user (both pwd and login can be set from env with LLAMA_HTTP_PWD=login:pwd)', default=None)
+   parser.add_argument('--passwd', '-P', type=str, help='HTTP pass', default=None)
 
    parser.add_argument('text', nargs='*')
 
    # Parse the arguments
    args = parser.parse_args(sys.argv[1:])
 
-   l = Llama(args.server, args.personality)
+   server = args.server
+
+   env_addr = os.getenv("LLAMA_SERVER")
+
+   if env_addr:
+      server = env_addr
+
+
+   user=args.user
+   passwd=args.passwd
+
+   env_pwd = os.getenv("LLAMA_HTTP_PWD")
+
+   if env_pwd:
+      a = env_pwd.split(":")
+      if len(a) != 2:
+         raise Exception("Expected login:pwd had {}".format(env_pwd))
+      user = a[0]
+      passwd = a[1]
+
+
+   l = Llama(server, args.personality, user=user, passwd=passwd)
 
    use_md = not args.plain
 
