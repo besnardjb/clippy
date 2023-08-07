@@ -10,7 +10,7 @@ import sys
 console = Console()
 
 
-class Llama:
+class Clippy:
 
    def _check(self):
       try:
@@ -33,7 +33,7 @@ class Llama:
             self.personality = f.read()
       else:
          self.personality = """
-You are llama a coding assisant.
+You are clippy a coding assisant, you are the successor of the clippy from MS Word, and you behave similarly.
 You are here to make your best to answer questions from User.
 You make structured responses (possibly with subparts with markdown headings) and try to highlight all possibilities while remaining concise.
 You use as much markdown as possible in your answers as supported by commonmark.
@@ -50,9 +50,9 @@ Do not infer what user would say.
 
 
 User: Hello!
-Llama: Hello dear user how can I help you ?
+Clippy: Hello dear user how can I help you ?
 User: Give me some examples of native and interpreted languages
-Llama:
+Clippy:
 # Native
 
 - C : is a native language of reference
@@ -74,7 +74,7 @@ Llama:
       sys.stdout.flush()
 
    def rewrite_to_md(self, content, lines_to_clear=0):
-      md = Markdown(content.replace("Llama:","**Llama:** ").replace("llama:","**llama:** "),
+      md = Markdown(content.replace("Clippy:","**Clippy:** ").replace("Clippy:","**Clippy:** "),
                     justify="left")
       print("\033[{}A\033[J".format(lines_to_clear))
       console.print(md,end='',justify="left")
@@ -110,7 +110,7 @@ Llama:
       if resp.status_code != 200:
          raise Exception("Had non 200 response {}".format(resp.status_code))
 
-      llamaresp = ""
+      Clippyresp = ""
 
       line_count = 0
 
@@ -120,7 +120,7 @@ Llama:
                   rjs = ":".join(line.decode("utf-8").split(":")[1:])
                   js = json.loads(rjs)
                   r = js["content"]
-                  llamaresp = llamaresp + r
+                  Clippyresp = Clippyresp + r
                   line_count = line_count + len([ x for x in r if x in ['\n','\r']])
 
                   print(r, end="")
@@ -130,9 +130,9 @@ Llama:
                   print(e)
 
       if md:
-         self.rewrite_to_md(llamaresp, line_count)
+         self.rewrite_to_md(Clippyresp, line_count)
 
-      self.ctx.append(llamaresp)
+      self.ctx.append(Clippyresp)
       if not single:
          self.userprompt()
 
@@ -150,7 +150,7 @@ Llama:
                print(d)
                return d
          elif line.startswith("/help"):
-            print("/read [FILE] : send a file to llama")
+            print("/read [FILE] : send a file to Clippy")
             print("/help show this help")
       except Exception as e:
          print(e)
@@ -209,7 +209,7 @@ def main():
       passwd = a[1]
 
 
-   l = Llama(server, args.personality, user=user, passwd=passwd)
+   l = Clippy(server, args.personality, user=user, passwd=passwd)
 
    use_md = not args.plain
 
