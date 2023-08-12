@@ -8,6 +8,7 @@ from rich.markdown import Markdown
 import sys
 import subprocess
 import re
+import wikipedia
 
 console = Console()
 
@@ -34,7 +35,8 @@ class Llama:
       if user:
          self.session.auth = (user, passwd)
 
-      self.reman = r'\(MAN (\s+)\)'
+      self.rewiki = r'\(WIKI (.*)\)'
+      self.reman = r'\(MAN (.*)\)'
       self.reopen = r'\(OPEN\s+(https?://[^\s/$.?#].[^\s]*)\)'
       self.reurl = r'\(GET\s+(https?://[^\s/$.?#].[^\s]*)\)'
       self.line_count = 0
@@ -51,6 +53,18 @@ You are llama a resource aggregator and coding assistant.
 You help the user searching information on the Internet.
 
 # Capabilities
+
+You have capabilities these are your superpowers, feel free to use them as much as possible.
+
+## The WIKI command
+
+You can query any page on Wikipedia doing (WIKI page)
+Do not put the URL put the subject. For example if you want to look for Python:
+
+(WIKI Python)
+System: [... the content of the python page ...]
+
+Wikipedia is a good source of information to refresh knowledge. You use it a lot when starting interactions.
 
 ## The GET Command
 
@@ -83,12 +97,14 @@ Always focus on the content and answering the user questions, not commenting the
 As google maps is visual always open is to the user with OPEN while pasing the correct parameters.
 When you don't know try a yahoo search and extract links.
 
+If you don't have information always try online.
+
 # Chat with the USER and System
 
 User: can you open google ?
 Llama: (OPEN http://google.com)
 User: Tell me more about Brest
-Llama: Let me look on Wikipedia to refresh my mind ... (GET http://en.wikipedia.com/wiki/Brest_France)
+Llama: Let me look on Wikipedia to refresh my mind ... (WIKI Brest)
 System: [CONTENT of the BREST page]
 Lllama: Brest is a city in Brittany ...
       """
@@ -107,27 +123,29 @@ Lllama: Brest is a city in Brittany ...
 
    def parse_each_line(self, linebuff, md=False):
       if "\n" in linebuff:
-         m = re.findall(self.reurl, linebuff)
-         if m:
-            for match in m:
-               print(f"Looking for {match} on the web ...")
-               self.line_count = self.line_count + 1
-               ret = self._links2(match)
-               ret_clean = self.blocking_query("""
-You are an assistant processing HTML pages for the user summarizing valuable informations from it.
-Your name is Llama.
-
-User: Hello how are you ?
-Llama: I'm fine what can I do for you ?
-User: Can you clean the content of this page to only return the content : \n\n""" + ret)
-               print(ret_clean)
-               self.query(ret_clean, single=True, md=md, issystem=True)
-         m = re.findall(self.reopen, linebuff)
-         if m:
-            for match in m:
-               print(f"Opening for {match} on the web ...")
-               self.line_count = self.line_count + 1
-               subprocess.call(["xdg-open", match])
+         try:
+            m = re.findall(self.rewiki, linebuff)
+            if m:
+               for match in m:
+                  ret = wikipedia.page(match)
+                  print(ret.content)
+                  self.query(ret.content.replace("\n", " "), single=True, md=md, issystem=True)
+            m = re.findall(self.reurl, linebuff)
+            if m:
+               for match in m:
+                  print(f"Looking for {match} on the web ...")
+                  self.line_count = self.line_count + 1
+                  ret = self._links2(match)
+                  print(ret)
+                  self.query(ret.replace("\n", " "), single=True, md=md, issystem=True)
+            m = re.findall(self.reopen, linebuff)
+            if m:
+               for match in m:
+                  print(f"Opening for {match} on the web ...")
+                  self.line_count = self.line_count + 1
+                  subprocess.call(["xdg-open", match])
+         except Exception as e:
+            print(e)
          return ""
       return linebuff
 
@@ -157,8 +175,8 @@ User: Can you clean the content of this page to only return the content : \n\n""
          raise Exception("Had {} response: {}".format(resp.status_code, resp.reason))
 
       data = resp.json()
-      return data["content"]
-
+      ret = data["content"]
+      self.ctx.append(ret)
 
    def query(self, query, single=False, md=True, issystem=False):
       if issystem:
